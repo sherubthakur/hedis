@@ -50,6 +50,7 @@ clientLoop socket = do
     liftIO $ print $ "Redis command:" <> redisCmdStr
     result <- runCmdStr redisCmdStr
     send socket result
+    clientLoop socket
 
 -- Redis Command execution
 
