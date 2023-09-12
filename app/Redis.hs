@@ -5,10 +5,10 @@
 
 module Redis where
 
-import Control.Concurrent.STM (TVar, newTVarIO)
+import Control.Concurrent.STM (TVar, atomically, modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Except (ExceptT, MonadError, liftEither, throwError)
 import Control.Monad.IO.Class (MonadIO, liftIO)
-import Control.Monad.Reader (MonadReader, ReaderT)
+import Control.Monad.Reader (MonadReader, ReaderT, ask)
 import Data.Bifunctor (first)
 import Data.ByteString (ByteString)
 import Data.ByteString.Char8 (putStrLn)
@@ -57,6 +57,12 @@ clientLoop socket = do
 runCmd :: Resp -> Redis Resp
 runCmd (Array 1 [BulkStr "ping"]) = pure $ Str "PONG"
 runCmd (Array 2 [BulkStr "echo", BulkStr xs]) = pure $ Str xs
+runCmd (Array 3 [BulkStr "set", BulkStr k, BulkStr v]) = do
+    _ <- rInsert k v
+    pure $ Str "OK"
+runCmd (Array 2 [BulkStr "get", BulkStr k]) = do
+    mval <- rLookup k
+    pure $ maybe NullBulk Str mval
 runCmd _ = throwError $ UnimplementedError ""
 
 runCmdStr :: ByteString -> Redis ByteString
@@ -71,3 +77,15 @@ runCmdStr redisCmdStr = do
 
 newRedis :: IO DB
 newRedis = newTVarIO Map.empty
+
+rInsert :: Key -> Val -> Redis ()
+rInsert k value = do
+    db <- ask
+    liftIO $ atomically $ modifyTVar db (Map.insert k value)
+
+rLookup :: Key -> Redis (Maybe Val)
+rLookup k = do
+    db <- ask
+    db <- liftIO $ readTVarIO db
+    let value = Map.lookup k db
+    pure value
