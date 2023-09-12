@@ -56,6 +56,7 @@ clientLoop socket = do
 
 runCmd :: Resp -> Redis Resp
 runCmd (Array 1 [BulkStr "ping"]) = pure $ Str "PONG"
+runCmd (Array 2 [BulkStr "echo", BulkStr xs]) = pure $ Str xs
 runCmd _ = throwError $ UnimplementedError ""
 
 runCmdStr :: ByteString -> Redis ByteString
